@@ -4,27 +4,36 @@ const puppeteer = require('puppeteer');
 const app = express();
 
 app.get('/', (req, res) => {
-  res.send('Puppeteer API is working!');
+  res.send('Puppeteer API Ready. Gunakan /open?url=https://example.com');
 });
 
-app.get('/screenshot', async (req, res) => {
+app.get('/open', async (req, res) => {
   const { url } = req.query;
-  if (!url) return res.status(400).send('URL is required.');
+
+  if (!url || !url.startsWith('http')) {
+    return res.status(400).send('URL tidak valid.');
+  }
 
   try {
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
     const page = await browser.newPage();
-    await page.goto(url);
-    const screenshot = await page.screenshot();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+    // Ambil isi HTML dari <body>
+    const bodyHTML = await page.evaluate(() => document.body.innerHTML);
+
     await browser.close();
 
-    res.set('Content-Type', 'image/png');
-    res.send(screenshot);
-  } catch (err) {
-    res.status(500).send('Error: ' + err.message);
+    // Kirim hasil HTML body sebagai response (content-type text/html)
+    res.set('Content-Type', 'text/html');
+    res.send(bodyHTML);
+
+  } catch (error) {
+    res.status(500).send('Gagal membuka URL: ' + error.message);
   }
 });
 
